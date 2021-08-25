@@ -18,8 +18,6 @@
 package io.wazo.callkeep;
 
 import android.Manifest;
-import android.app.Activity;
-import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -27,52 +25,24 @@ import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
-import android.content.res.Resources;
-import android.graphics.drawable.BitmapDrawable;
-import android.graphics.drawable.Icon;
 import android.media.AudioDeviceInfo;
-import android.media.AudioManager;
-import android.net.Uri;
 import android.os.Build;
-import android.os.Bundle;
-import android.view.WindowManager;
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
-import androidx.localbroadcastmanager.content.LocalBroadcastManager;
-import android.telecom.CallAudioState;
-import android.telecom.Connection;
-import android.telecom.DisconnectCause;
-import android.telecom.PhoneAccount;
-import android.telecom.PhoneAccountHandle;
-import android.telecom.TelecomManager;
-import android.telephony.TelephonyManager;
 import android.util.Log;
 
-import com.facebook.react.bridge.Arguments;
-import com.facebook.react.bridge.Dynamic;
 import com.facebook.react.bridge.Promise;
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
 import com.facebook.react.bridge.ReadableArray;
 import com.facebook.react.bridge.ReadableMap;
-import com.facebook.react.bridge.WritableArray;
 import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.bridge.WritableNativeArray;
 import com.facebook.react.bridge.WritableNativeMap;
 import com.facebook.react.HeadlessJsTaskService;
 import com.facebook.react.modules.core.DeviceEventManagerModule.RCTDeviceEventEmitter;
-import com.facebook.react.modules.permissions.PermissionsModule;
 
-import java.lang.reflect.Array;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.ResourceBundle;
 
 import org.json.JSONObject;
 import org.json.JSONException;
@@ -98,6 +68,8 @@ import static io.wazo.callkeep.Constants.ACTION_SHOW_INCOMING_CALL_UI;
 import static io.wazo.callkeep.Constants.ACTION_ON_SILENCE_INCOMING_CALL;
 import static io.wazo.callkeep.Constants.ACTION_ON_CREATE_CONNECTION_FAILED;
 import static io.wazo.callkeep.Constants.ACTION_DID_CHANGE_AUDIO_ROUTE;
+import javax.annotation.Nullable;
+
 
 // @see https://github.com/kbagchiGWC/voice-quickstart-android/blob/9a2aff7fbe0d0a5ae9457b48e9ad408740dfb968/exampleConnectionService/src/main/java/com/twilio/voice/examples/connectionservice/VoiceConnectionServiceActivity.java
 public class RNCallKeepModule extends ReactContextBaseJavaModule {
@@ -115,11 +87,8 @@ public class RNCallKeepModule extends ReactContextBaseJavaModule {
     };
 
     private static final String TAG = "RNCallKeep";
-    private static TelecomManager telecomManager;
-    private static TelephonyManager telephonyManager;
     private static Promise hasPhoneAccountPromise;
     private ReactApplicationContext reactContext;
-    public static PhoneAccountHandle handle;
     private boolean isReceiverRegistered = false;
     private VoiceBroadcastReceiver voiceBroadcastReceiver;
     private static WritableMap _settings;
@@ -521,20 +490,9 @@ public class RNCallKeepModule extends ReactContextBaseJavaModule {
 
     @ReactMethod
     public void checkDefaultPhoneAccount(Promise promise) {
-        if (!isConnectionServiceAvailable() || !hasPhoneAccount()) {
-            promise.resolve(true);
-            return;
-        }
 
-        if (!Build.MANUFACTURER.equalsIgnoreCase("Samsung")) {
-            promise.resolve(true);
-            return;
-        }
 
-        boolean hasSim = telephonyManager.getSimState() != TelephonyManager.SIM_STATE_ABSENT;
-        boolean hasDefaultAccount = telecomManager.getDefaultOutgoingPhoneAccount("tel") != null;
-
-        promise.resolve(!hasSim || hasDefaultAccount);
+        promise.resolve(false);
     }
 
     @ReactMethod
@@ -557,11 +515,6 @@ public class RNCallKeepModule extends ReactContextBaseJavaModule {
             return;
         }
 
-        if (shouldHold == true) {
-            conn.onHold();
-        } else {
-            conn.onUnhold();
-        }
     }
 
     @ReactMethod
@@ -616,16 +569,6 @@ public class RNCallKeepModule extends ReactContextBaseJavaModule {
             return;
         }
 
-        CallAudioState newAudioState = null;
-        //if the requester wants to mute, do that. otherwise unmute
-        if (shouldMute) {
-            newAudioState = new CallAudioState(true, conn.getCallAudioState().getRoute(),
-                    conn.getCallAudioState().getSupportedRouteMask());
-        } else {
-            newAudioState = new CallAudioState(false, conn.getCallAudioState().getRoute(),
-                    conn.getCallAudioState().getSupportedRouteMask());
-        }
-        conn.onCallAudioStateChanged(newAudioState);
     }
     /**
      * toggle audio route for speaker via connection service function
@@ -764,22 +707,18 @@ public class RNCallKeepModule extends ReactContextBaseJavaModule {
             return;
         }
 
-        conn.setAddress(Uri.parse(uri), TelecomManager.PRESENTATION_ALLOWED);
-        conn.setCallerDisplayName(displayName, TelecomManager.PRESENTATION_ALLOWED);
     }
 
     @ReactMethod
     public void hasPhoneAccount(Promise promise) {
-        if (telecomManager == null) {
-            this.initializeTelecomManager();
-        }
+
 
         promise.resolve(hasPhoneAccount());
     }
 
     @ReactMethod
     public void hasOutgoingCall(Promise promise) {
-        promise.resolve(VoiceConnectionService.hasOutgoingCall);
+        promise.resolve(false);
     }
 
     @ReactMethod
@@ -789,7 +728,6 @@ public class RNCallKeepModule extends ReactContextBaseJavaModule {
 
     @ReactMethod
     public void setAvailable(Boolean active) {
-        VoiceConnectionService.setAvailable(active);
     }
 
     @ReactMethod
@@ -809,12 +747,10 @@ public class RNCallKeepModule extends ReactContextBaseJavaModule {
 
     @ReactMethod
     public void canMakeMultipleCalls(Boolean allow) {
-        VoiceConnectionService.setCanMakeMultipleCalls(allow);
     }
 
     @ReactMethod
     public void setReachable() {
-        VoiceConnectionService.setReachable();
     }
 
     @ReactMethod
@@ -903,17 +839,6 @@ public class RNCallKeepModule extends ReactContextBaseJavaModule {
         boolean isOpened = activity != null;
         Log.d(TAG, "[RNCallKeepModule] backToForeground, app isOpened ?" + (isOpened ? "true" : "false"));
 
-        if (isOpened) {
-            focusIntent.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
-            activity.startActivity(focusIntent);
-        } else {
-            focusIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK +
-                    WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED +
-                    WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD +
-                    WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON);
-
-            getReactApplicationContext().startActivity(focusIntent);
-        }
     }
 
     public static void onRequestPermissionsResult(int requestCode, String[] grantedPermissions, int[] grantResults) {
@@ -1096,11 +1021,6 @@ public class RNCallKeepModule extends ReactContextBaseJavaModule {
         }
     }
 
-    private class VoiceBroadcastReceiver extends BroadcastReceiver {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            WritableMap args = Arguments.createMap();
-            HashMap<String, String> attributeMap = (HashMap<String, String>)intent.getSerializableExtra("attributeMap");
 
             Log.d(TAG, "[RNCallKeepModule][onReceive] " + intent.getAction());
 
