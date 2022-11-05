@@ -55,6 +55,8 @@ public class RNCallKeepModule extends ReactContextBaseJavaModule {
         Manifest.permission.RECORD_AUDIO
     };
 
+    public static RNCallKeepModule instance = null;
+
     private static final String TAG = "RNCallKeep";
     private static Promise hasPhoneAccountPromise;
     private ReactApplicationContext reactContext;
@@ -69,6 +71,24 @@ public class RNCallKeepModule extends ReactContextBaseJavaModule {
         this.reactContext = reactContext;
     }
 
+    public static RNCallKeepModule getInstance(ReactApplicationContext reactContext, boolean realContext) {
+        if (instance == null) {
+            Log.d(TAG, "[RNCallKeepModule] getInstance : " + (reactContext == null ? "null" : "ok"));
+            instance = new RNCallKeepModule(reactContext);
+        }
+        if (realContext) {
+            instance.setContext(reactContext);
+        }
+        return instance;
+    }
+    public void setContext(ReactApplicationContext reactContext) {
+        Log.d(TAG, "[RNCallKeepModule] updating react context");
+        this.reactContext = reactContext;
+    }
+    public ReactApplicationContext getContext() {
+        return this.reactContext;
+    }
+    
     private boolean isSelfManaged() {
         try { 
             return Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && _settings.hasKey("selfManaged") && _settings.getBoolean("selfManaged");
