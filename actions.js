@@ -17,6 +17,8 @@ const RNCallKeepCheckReachability = 'RNCallKeepCheckReachability';
 const RNCallKeepDidLoadWithEvents = 'RNCallKeepDidLoadWithEvents';
 const RNCallKeepShowIncomingCallUi = 'RNCallKeepShowIncomingCallUi';
 const RNCallKeepOnSilenceIncomingCall = 'RNCallKeepOnSilenceIncomingCall';
+const RNCallKeepOnIncomingConnectionFailed = 'RNCallKeepOnIncomingConnectionFailed';
+const RNCallKeepDidChangeAudioRoute = 'RNCallKeepDidChangeAudioRoute';
 const isIOS = Platform.OS === 'ios';
 
 const didReceiveStartCallAction = handler => {
@@ -34,14 +36,26 @@ const answerCall = handler =>
 const endCall = handler =>
   eventEmitter.addListener(RNCallKeepPerformEndCallAction, (data) => handler(data));
 
+const didChangeAudioRoute = handler =>
+  eventEmitter.addListener(RNCallKeepDidChangeAudioRoute, handler);
+
 const didActivateAudioSession = handler =>
   eventEmitter.addListener(RNCallKeepDidActivateAudioSession, handler);
 
 const didDeactivateAudioSession = handler =>
   eventEmitter.addListener(RNCallKeepDidDeactivateAudioSession, handler);
 
-const didDisplayIncomingCall = handler =>
-  eventEmitter.addListener(RNCallKeepDidDisplayIncomingCall, (data) => handler(data));
+const didDisplayIncomingCall = handler => eventEmitter.addListener(RNCallKeepDidDisplayIncomingCall, data => {
+  // On Android the payload parameter is sent a String
+  // As it requires too much code on Android to convert it to WritableMap, let's do it here.
+  if (data.payload && typeof data.payload === 'string') {
+    try {
+      data.payload = JSON.parse(data.payload);
+    } catch (_) {
+    }
+  }
+  handler(data);
+});
 
 const didPerformSetMutedCallAction = handler =>
   eventEmitter.addListener(RNCallKeepDidPerformSetMutedCallAction, (data) => handler(data));
@@ -67,6 +81,9 @@ const showIncomingCallUi = handler =>
 const silenceIncomingCall = handler =>
   eventEmitter.addListener(RNCallKeepOnSilenceIncomingCall, (data) => handler(data));
 
+const createIncomingConnectionFailed = handler =>
+  eventEmitter.addListener(RNCallKeepOnIncomingConnectionFailed, (data) => handler(data));
+
 export const emit = (eventName, payload) => eventEmitter.emit(eventName, payload);
 
 export const listeners = {
@@ -83,5 +100,7 @@ export const listeners = {
   checkReachability,
   didLoadWithEvents,
   showIncomingCallUi,
-  silenceIncomingCall
+  silenceIncomingCall,
+  createIncomingConnectionFailed,
+  didChangeAudioRoute,
 };

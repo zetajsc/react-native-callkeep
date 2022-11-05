@@ -48,11 +48,13 @@ class RNCallKeep {
     return this._setupIOS(options.ios);
   };
 
-  registerPhoneAccount = () => {
+  setSettings = (settings) => RNCallKeepModule.setSettings(settings[isIOS ? 'ios' : 'android']);
+
+  registerPhoneAccount = (options) => {
     if (isIOS) {
       return;
     }
-    RNCallKeepModule.registerPhoneAccount();
+    RNCallKeepModule.registerPhoneAccount(options.android);
   };
 
   registerAndroidEvents = () => {
@@ -60,6 +62,13 @@ class RNCallKeep {
       return;
     }
     RNCallKeepModule.registerEvents();
+  };
+
+  unregisterAndroidEvents = () => {
+    if (isIOS) {
+      return;
+    }
+    RNCallKeepModule.unregisterEvents();
   };
 
   hasDefaultPhoneAccount = async (options) => {
@@ -79,7 +88,7 @@ class RNCallKeep {
     options = null
   ) => {
     if (!isIOS) {
-      RNCallKeepModule.displayIncomingCall(uuid, handle, localizedCallerName);
+      RNCallKeepModule.displayIncomingCall(uuid, handle, localizedCallerName, hasVideo);
       return;
     }
 
@@ -108,7 +117,7 @@ class RNCallKeep {
 
   startCall = (uuid, handle, contactIdentifier, handleType = 'number', hasVideo = false) => {
     if (!isIOS) {
-      RNCallKeepModule.startCall(uuid, handle, contactIdentifier);
+      RNCallKeepModule.startCall(uuid, handle, contactIdentifier, hasVideo);
       return;
     }
 
@@ -214,9 +223,7 @@ class RNCallKeep {
       return;
     }
 
-    RNCallKeepModule.setForegroundServiceSettings({
-      foregroundService: settings,
-    });
+    RNCallKeepModule.setForegroundServiceSettings(settings);
   };
 
   canMakeMultipleCalls = (state) => {
@@ -251,6 +258,8 @@ class RNCallKeep {
   };
 
   setOnHold = (uuid, shouldHold) => RNCallKeepModule.setOnHold(uuid, shouldHold);
+
+  setConnectionState = (uuid, state) => isIOS ? null : RNCallKeepModule.setConnectionState(uuid, state);
 
   setReachable = () => RNCallKeepModule.setReachable();
 
@@ -319,7 +328,7 @@ class RNCallKeep {
           },
           { text: options.okButton, onPress: () => resolve(true) },
         ],
-        { cancelable: true }
+        { cancelable: true },
       );
     });
 
@@ -332,10 +341,11 @@ class RNCallKeep {
   }
 
   getInitialEvents() {
-    if (isIOS) {
-      return RNCallKeepModule.getInitialEvents()
-    }
-    return Promise.resolve([])
+    return RNCallKeepModule.getInitialEvents();
+  }
+
+  clearInitialEvents() {
+    return RNCallKeepModule.clearInitialEvents();
   }
 }
 

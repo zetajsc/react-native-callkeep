@@ -11,15 +11,18 @@ declare module 'react-native-callkeep' {
     'didResetProvider' |
     'checkReachability' |
     'didPerformSetMutedCallAction' |
+    'didChangeAudioRoute' |
     'didLoadWithEvents' |
     'showIncomingCallUi' |
-    'silenceIncomingCall';
+    'silenceIncomingCall' |
+    'createIncomingConnectionFailed';
 
   type HandleType = 'generic' | 'number' | 'email';
 
   export type AudioRoute = {
     name: string,
-    type: string
+    type: string,
+    selected?: boolean
   }
 
   interface IOptions {
@@ -69,6 +72,8 @@ declare module 'react-native-callkeep' {
   export default class RNCallKeep {
     static getInitialEvents(): Promise<Array<Object>>
 
+    static clearInitialEvents(): void
+
     static addEventListener(type: Events, handler: (args: any) => void): void
 
     static removeEventListener(type: Events): void
@@ -79,9 +84,11 @@ declare module 'react-native-callkeep' {
 
     static answerIncomingCall(uuid: string): void
 
-    static registerPhoneAccount(): void
+    static registerPhoneAccount(options: IOptions): void
 
     static registerAndroidEvents(): void
+
+    static unregisterAndroidEvents(): void
 
     static displayIncomingCall(
       uuid: string,
@@ -131,6 +138,8 @@ declare module 'react-native-callkeep' {
 
     static setReachable(): void
 
+    static setSettings(settings: Object): void;
+
     /**
      * @description isCallActive method is available only on iOS.
      */
@@ -165,7 +174,10 @@ declare module 'react-native-callkeep' {
      * @param routeSpeaker
      */
     static toggleAudioRouteSpeaker(uuid: string, routeSpeaker: boolean): void
+
     static setOnHold(uuid: string, held: boolean): void
+
+    static setConnectionState(uuid: string, state: number): void
 
     /**
      * @descriptions sendDTMF is used to send DTMF tones to the PBX.

@@ -113,6 +113,11 @@ Alternative on iOS you can perform setup in `AppDelegate.m`. Doing this allows c
       If provided, it will be displayed on system UI during the call
     - `ringtoneSound`: string (optional)
       If provided, it will be played when incoming calls received; the system will use the default ringtone if this is not provided
+    - `handleType`: string|array (optional)
+      If provided, it will tell iOS what kind of handle(s) (number) your app can handle.
+      - `generic`
+      - `number` (default)
+      - `email`
     - `includesCallsInRecents`: boolean (optional)
       If provided, calls will be shown in the recent calls when true and not when false (ios 11 and above) (Default: true)
     - `maximumCallGroups`: string (optional)
@@ -121,6 +126,9 @@ Alternative on iOS you can perform setup in `AppDelegate.m`. Doing this allows c
       If provided, the maximum number of calls in a single group, used for conferencing (Default: 1, no conferencing)
     - `supportsVideo`: boolean (optional)
       If provided, whether or not the application supports video calling (Default: true)
+    - `displayCallReachabilityTimeout`: number in ms (optional)
+      If provided, starts a timeout that checks if the application is reachable and ends the call if not (Default: null)
+      You'll have to call `setReachable()` as soon as your Javascript application is started.
   - `android`: object
     - `alertTitle`: string (required)
       When asking for _phone account_ permission, we need to provider a title for the `Alert` to ask the user for it
@@ -139,8 +147,13 @@ Alternative on iOS you can perform setup in `AppDelegate.m`. Doing this allows c
       multiple popups to the user at different times.
     - `selfManaged`: boolean (optional)
       When set to true, call keep will configure itself to run as a self managed connection service. This is an advanced topic, and it's best to refer to [Googles Documentation](https://developer.android.com/guide/topics/connectivity/telecom/selfManaged) on the matter.
+      - `displayCallReachabilityTimeout`: number in ms (optional)
+        If provided, starts a timeout that checks if the application is reachable and ends the call if not (Default: null)
+        You'll have to call `setReachable()` as soon as your Javascript application is started.
       
-`setup` calls internally `registerPhoneAccount` and `registerEvents`.
+`setup` calls internally `registerPhoneAccount`, `registerEvents` and `setSettings`.
+
+You can alternatively just call `setSettings()` with the same option as `setup()` to define only your settings.
 
 # Constants
 
@@ -174,6 +187,7 @@ To implement a self managed calling app, the following steps are necessary:
 - CallKeep will then fire the `showIncomingCallUi` event.
 - When `showIncomingCallUi` is fired, you must show an incoming call UI. This would be a high priority notification ([Android: Display time-sensitive notifications](https://developer.android.com/training/notify-user/time-sensitive)).
 - If the user answers the call, you call the appropriate RNCallKeep actions such as `answerCall` or `endCall`
+- In certain cases Android will not allow you to show an incoming call notification. In that case the 'createIncomingConnectionFailed' event is fired and you should reject the incoming SIP Invite.
 
 Self Managed calling apps are an advanced topic, and there are many steps involved in implementing them, but here are some things to keep in mind:
 - React Native Headless Tasks are a great way to execute React Native code. Remember to start up the headless task as a Foreground Service.
@@ -189,7 +203,8 @@ Self Managed calling apps are an advanced topic, and there are many steps involv
 
 | Method                                                            | Return Type         |  iOS | Android |
 | ----------------------------------------------------------------- | ------------------- | :--: | :-----: |
-| [getInitialEvents()](#getInitialEvents)                           | `Promise<String[]>` |  ✅  |   ❌    |
+| [getInitialEvents()](#getInitialEvents)                           | `Promise<String[]>` |  ✅  |   ✅    |
+| [clearInitialEvents()](#clearInitialEvents)                       | `void>`             |  ✅  |   ✅    |
 | [setAvailable()](#setAvailable)                                   | `Promise<void>`     |  ❌  |   ✅    |
 | [setForegroundServiceSettings()](#setForegroundServiceSettings)   | `Promise<void>`     |  ❌  |   ✅    |
 | [canMakeMultipleCalls()](#canMakeMultipleCalls)                   | `Promise<void>`     |  ❌  |   ✅    |
@@ -206,6 +221,7 @@ Self Managed calling apps are an advanced topic, and there are many steps involv
 | [reportEndCallWithUUID()](#reportEndCallWithUUID)                 | `Promise<void>`     |  ✅  |   ✅    |
 | [setMutedCall()](#setMutedCall)                                   | `Promise<void>`     |  ✅  |   ✅    |
 | [setOnHold()](#setOnHold)                                         | `Promise<void>`     |  ✅  |   ✅    |
+| [setConnectionState()](#setConnectionState)                       | `Promise<void>`     |  ❌  |   ✅    |
 | [checkIfBusy()](#checkIfBusy)                                     | `Promise<Boolean>`  |  ✅  |   ❌    |
 | [checkSpeaker()](#checkSpeaker)                                   | `Promise<Boolean>`  |  ✅  |   ❌    |
 | [toggleAudioRouteSpeaker()](#toggleAudioRouteSpeaker)             | `Promise<void>`     |  ❌  |   ✅    |
@@ -222,12 +238,19 @@ Self Managed calling apps are an advanced topic, and there are many steps involv
 
 
 ### getInitialEvents
-_This feature is available only on iOS._
 
 If there were some actions performed by user before JS context has been created, this method would return early fired events. This is alternative to "didLoadWithEvents" event.
 
 ```js
 RNCallKeep.getInitialEvents();
+```
+
+### clearInitialEvents
+
+Clear all pending actions returned by `getInitialEvents()`.
+
+```js
+RNCallKeep.clearInitialEvents();
 ```
 
 ### setAvailable
@@ -491,6 +514,20 @@ RNCallKeep.setOnHold(uuid, true)
   - uuid of the current call.
 - `hold`: boolean
 
+### setConnectionState
+
+_This feature is available only on Android._
+
+Change the state of the call
+
+```js
+RNCallKeep.setConnectionState(uuid, state)
+```
+
+- `uuid`: string
+  - uuid of the current call.
+- `state`: [See Connection.STATE_*](https://developer.android.com/reference/android/telecom/Connection#STATE_ACTIVE) documentation
+
 ### checkIfBusy
 
 _This feature is available only on IOS._
@@ -554,7 +591,7 @@ await RNCallKeep.setAudioRoute(uuid, routeName);
 - `routeName`: String
   - AudioRoute.name. 
 
-### supportConnectionService (async)
+### supportConnectionService
 
 _This feature is available only on Android._
 
@@ -662,7 +699,7 @@ _This feature is available only on Android._
 _On iOS you still have to call `setup()`._
 
 ```js
-RNCallKeep.registerPhoneAccount();
+RNCallKeep.registerPhoneAccount(options);
 ```
 
 ### registerAndroidEvents
@@ -681,18 +718,19 @@ RNCallKeep.registerAndroidEvents();
 
 | Event                                                             |  iOS | Android |
 | ----------------------------------------------------------------- | :--: | :-----: |
-| [didReceiveStartCallAction()](#didReceiveStartCallAction)         |  ✅  |   ✅    |
-| [answerCall()](#answerCall)                                       |  ✅  |   ✅    |
-| [endCall()](#endCall)                                             |  ✅  |   ✅    |
-| [didActivateAudioSession()](#didActivateAudioSession)             |  ✅  |   ✅    |
-| [didDisplayIncomingCall()](#didDisplayIncomingCall)               |  ✅  |   ✅    |
-| [didPerformSetMutedCallAction()](#didPerformSetMutedCallAction)   |  ✅  |   ✅    |
-| [didToggleHoldCallAction()](#didToggleHoldCallAction)             |  ✅  |   ✅    |
-| [didPerformDTMFAction()](#didPerformDTMFAction)                   |  ✅  |   ✅    |
-| [didLoadWithEvents()](#didLoadWithEvents)                         |  ✅  |   ✅    |
-| [showIncomingCallUi()](#showIncomingCallUi)                       |  ❌  |   ✅    |
-| [silenceIncomingCall()](#silenceIncomingCall)                     |  ❌  |   ✅    |
-| [checkReachability()](#checkReachability)                         |  ❌  |   ✅    |
+| [didReceiveStartCallAction](#didReceiveStartCallAction)         |  ✅  |   ✅    |
+| [answerCall](#answerCall)                                       |  ✅  |   ✅    |
+| [endCall](#endCall)                                             |  ✅  |   ✅    |
+| [didActivateAudioSession](#didActivateAudioSession)             |  ✅  |   ✅    |
+| [didDisplayIncomingCall](#didDisplayIncomingCall)               |  ✅  |   ✅    |
+| [didPerformSetMutedCallAction](#didPerformSetMutedCallAction)   |  ✅  |   ✅    |
+| [didToggleHoldCallAction](#didToggleHoldCallAction)             |  ✅  |   ✅    |
+| [didPerformDTMFAction](#didPerformDTMFAction)                   |  ✅  |   ✅    |
+| [didLoadWithEvents](#didLoadWithEvents)                         |  ✅  |   ✅    |
+| [showIncomingCallUi](#showIncomingCallUi)                       |  ❌  |   ✅    |
+| [silenceIncomingCall](#silenceIncomingCall)                     |  ❌  |   ✅    |
+| [checkReachability](#checkReachability)                         |  ❌  |   ✅    |
+| [didChangeAudioRoute](#didChangeAudioRoute)                     |  ✅  |   ✅    |
 
 ### didReceiveStartCallAction
 
@@ -766,6 +804,8 @@ RNCallKeep.addEventListener('didDisplayIncomingCall', ({ error, callUUID, handle
 
 - `error` (string)
   - iOS only.
+- `errorCode` (string)
+  - iOS only. Possible values: "Unentitled", "CallUUIDAlreadyExists", "FilteredByDoNotDisturb", "FilteredByBlockList", "Unknown". See https://developer.apple.com/documentation/callkit/cxerrorcodeincomingcallerror for more information.
 - `callUUID` (string)
   - The UUID of the call.
 - `handle` (string)
@@ -801,6 +841,17 @@ A call was held or unheld by the current user
 
 ```js
 RNCallKeep.addEventListener('didToggleHoldCallAction', ({ hold, callUUID }) => {
+
+});
+```
+
+### - didChangeAudioRoute
+
+Triggered when the audio route has been changed.
+⚠️ Will send `Speaker` on iOS but `SPEAKER` on Android.
+
+```js
+RNCallKeep.addEventListener('didChangeAudioRoute', ({ output }) => {
 
 });
 ```
@@ -893,6 +944,26 @@ The following values will match those initially passed to `silenceIncomingCall`
 - `name` (string)
   - Caller Name.
 
+### - createIncomingConnectionFailed
+
+_Android only. Self Managed only._
+
+Corresponds to the native [onCreateIncomingConnectionFailed callback](https://developer.android.com/reference/android/telecom/ConnectionService#onCreateIncomingConnectionFailed(android.telecom.PhoneAccountHandle,%20android.telecom.ConnectionRequest)). The implementor should reject the incoming SIP INVITE with an appropriate status code, such as 483 User Busy. Android unfortunately does not provide the exact reason for refusing to let you accept an incoming call, but they do list a set of reasons [here](https://developer.android.com/guide/topics/connectivity/telecom/selfManaged#constraints)
+
+```js
+RNCallKeep.addEventListener('createIncomingConnectionFailed', ({ handle, callUUID, name }) => {
+
+});
+```
+
+The following values will match those initially passed to `silenceIncomingCall`
+
+- `handle` (string)
+  - Phone number of the incoming caller.
+- `callUUID` (string)
+  - The UUID of the call.
+- `name` (string)
+  - Caller Name.
 
 ### - checkReachability
 
